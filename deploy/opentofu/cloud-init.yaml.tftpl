@@ -2,8 +2,18 @@
 package_update: true
 packages:
   - e2fsprogs
+  - openssh-server
   - podman
   - wireguard-tools
+
+users:
+  - default
+  - name: fedora
+    groups: [wheel]
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - ${admin_ssh_public_key}
 
 bootcmd:
   - [mkdir, -p, /etc/cis, /etc/containers/systemd, /srv/cis, /etc/wireguard]
@@ -13,47 +23,47 @@ write_files:
     owner: root:root
     permissions: "0644"
     content: |
-${indent(6, app_config)}
+      ${replace(chomp(app_config), "\n", "\n      ")}
   - path: /etc/cis/postgres.env
     owner: root:root
     permissions: "0600"
     content: |
-${indent(6, postgres_env)}
+      ${replace(chomp(postgres_env), "\n", "\n      ")}
   - path: /etc/wireguard/wg0.conf
     owner: root:root
     permissions: "0600"
     content: |
-${indent(6, wireguard_config)}
+      ${replace(chomp(wireguard_config), "\n", "\n      ")}
   - path: /etc/containers/systemd/app.container
     owner: root:root
     permissions: "0644"
     content: |
-${indent(6, app_container)}
+      ${replace(chomp(app_container), "\n", "\n      ")}
   - path: /etc/containers/systemd/worker.container
     owner: root:root
     permissions: "0644"
     content: |
-${indent(6, worker_container)}
+      ${replace(chomp(worker_container), "\n", "\n      ")}
   - path: /etc/containers/systemd/postgres.container
     owner: root:root
     permissions: "0644"
     content: |
-${indent(6, postgres_container)}
+      ${replace(chomp(postgres_container), "\n", "\n      ")}
   - path: /etc/containers/systemd/postgres-backup.container
     owner: root:root
     permissions: "0644"
     content: |
-${indent(6, postgres_backup_container)}
-  - path: /etc/containers/systemd/postgres-backup.timer
+      ${replace(chomp(postgres_backup_container), "\n", "\n      ")}
+  - path: /etc/systemd/system/postgres-backup.timer
     owner: root:root
     permissions: "0644"
     content: |
-${indent(6, postgres_backup_timer)}
+      ${replace(chomp(postgres_backup_timer), "\n", "\n      ")}
   - path: /etc/containers/systemd/cis.network
     owner: root:root
     permissions: "0644"
     content: |
-${indent(6, cis_network)}
+      ${replace(chomp(cis_network), "\n", "\n      ")}
   - path: /usr/local/sbin/cis-bootstrap-storage
     owner: root:root
     permissions: "0755"
@@ -63,17 +73,17 @@ ${indent(6, cis_network)}
 
       mkdir -p /srv/cis/postgres /etc/cis /etc/containers/systemd
 
-      root_source="$(findmnt -n -o SOURCE /)"
+      root_source="$(findmnt -n -o SOURCE / | sed 's/\[.*\]//')"
       root_disk="$(lsblk -no PKNAME "$root_source" | head -n1)"
 
       data_device=""
       for _ in $(seq 1 60); do
-        while read -r name type; do
-          if [[ "$type" == "disk" && "$name" != "$root_disk" ]]; then
+        while read -r name type mountpoints; do
+          if [[ "$type" == "disk" && "$name" != "$root_disk" && "$name" != zram* && -z "$mountpoints" ]]; then
             data_device="/dev/$name"
             break
           fi
-        done < <(lsblk -ndo NAME,TYPE)
+        done < <(lsblk -ndo NAME,TYPE,MOUNTPOINTS)
 
         if [[ -n "$data_device" ]]; then
           break
@@ -102,9 +112,10 @@ ${indent(6, cis_network)}
 
 runcmd:
   - [/usr/local/sbin/cis-bootstrap-storage]
+  - [systemctl, enable, --now, sshd.service]
   - [systemctl, enable, --now, wg-quick@wg0.service]
   - [systemctl, daemon-reload]
-  - [systemctl, enable, --now, postgres.service]
-  - [systemctl, enable, --now, app.service]
-  - [systemctl, enable, --now, worker.service]
+  - [systemctl, start, postgres.service]
+  - [systemctl, start, app.service]
+  - [systemctl, start, worker.service]
   - [systemctl, enable, --now, postgres-backup.timer]

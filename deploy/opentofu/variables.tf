@@ -21,6 +21,11 @@ variable "container_image" {
   default     = "ghcr.io/joshelias/cloud-image-storage:latest"
 }
 
+variable "admin_ssh_public_key" {
+  description = "SSH public key allowed for WireGuard-only host administration."
+  type        = string
+}
+
 variable "instance_type" {
   description = "EC2 instance type for the Podman host."
   type        = string

@@ -1,10 +1,10 @@
-data "aws_ami" "al2023_arm" {
+data "aws_ami" "fedora_cloud_arm" {
   most_recent = true
-  owners      = ["amazon"]
+  owners      = ["125523088429"]
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-arm64"]
+    values = ["Fedora-Cloud-Base-AmazonEC2.aarch64-43-*"]
   }
 
   filter {
@@ -202,7 +202,7 @@ resource "aws_security_group" "host" {
 }
 
 resource "aws_instance" "host" {
-  ami                         = data.aws_ami.al2023_arm.id
+  ami                         = data.aws_ami.fedora_cloud_arm.id
   instance_type               = var.instance_type
   iam_instance_profile        = aws_iam_instance_profile.host.name
   vpc_security_group_ids      = [aws_security_group.host.id]
@@ -216,6 +216,7 @@ resource "aws_instance" "host" {
     postgres_backup_timer     = file("${path.module}/../quadlet/postgres-backup.timer")
     postgres_container        = file("${path.module}/../quadlet/postgres.container")
     postgres_env              = local.postgres_env
+    admin_ssh_public_key      = var.admin_ssh_public_key
     wireguard_config          = local.wireguard_config
     worker_container          = local.worker_container
   })
