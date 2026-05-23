@@ -222,7 +222,7 @@ resource "aws_instance" "host" {
 
   root_block_device {
     encrypted   = true
-    volume_size = 16
+    volume_size = 30
   }
 
   tags = {
