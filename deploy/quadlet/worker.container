@@ -4,7 +4,7 @@ After=postgres.service network-online.target
 Wants=postgres.service network-online.target
 
 [Container]
-Image=localhost/cloud-image-storage:latest
+Image=ghcr.io/joshelias/cloud-image-storage:latest
 ContainerName=cis-worker
 Network=cis.network
 Volume=/etc/cis:/etc/cis:ro,Z

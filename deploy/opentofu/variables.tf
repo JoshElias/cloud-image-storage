@@ -15,6 +15,12 @@ variable "bucket_name" {
   type        = string
 }
 
+variable "container_image" {
+  description = "Container image used by the app and worker Quadlet units."
+  type        = string
+  default     = "ghcr.io/joshelias/cloud-image-storage:latest"
+}
+
 variable "instance_type" {
   description = "EC2 instance type for the Podman host."
   type        = string
@@ -37,6 +43,17 @@ variable "wireguard_client_public_key" {
   description = "Laptop WireGuard public key."
   type        = string
   sensitive   = true
+}
+
+variable "wireguard_server_private_key" {
+  description = "Server WireGuard private key."
+  type        = string
+  sensitive   = true
+}
+
+variable "wireguard_server_public_key" {
+  description = "Server WireGuard public key."
+  type        = string
 }
 
 variable "wireguard_server_vpn_ip" {

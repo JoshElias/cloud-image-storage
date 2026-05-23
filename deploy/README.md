@@ -6,18 +6,20 @@ This deployment is intentionally small:
 - One encrypted EBS data volume.
 - One private S3 bucket with lifecycle rules for originals.
 - One WireGuard UDP ingress rule.
-- Podman Quadlet units for the app, worker, Postgres, backup job, and WireGuard setup.
+- Host-native WireGuard through `wg-quick@wg0`.
+- Podman Quadlet units for the app, worker, Postgres, and backup job.
 
 No public HTTP, HTTPS, SSH, or Postgres ingress is created.
 
 ## Flow
 
 1. Generate a WireGuard keypair on the laptop.
-2. Pass the laptop public key into OpenTofu.
+2. Generate a WireGuard keypair for the server and expose both keys through ignored local environment variables.
 3. Apply the infrastructure.
-4. Copy `deploy/quadlet/*.container` and `*.network` units to the host.
-5. Enable the units with systemd.
-6. Connect WireGuard from the laptop and browse the app at the server VPN address.
+4. Let cloud-init install packages, configure WireGuard, mount the data volume, and enable the Quadlet units.
+5. Connect WireGuard from the laptop and browse the app at the server VPN address.
+
+The app and worker containers pull `ghcr.io/joshelias/cloud-image-storage:latest` by default. The package must be public, or the host will need registry credentials.
 
 ## Local WireGuard Client
 
@@ -44,3 +46,10 @@ tofu -chdir=deploy/opentofu plan
 ```
 
 Review the plan for exactly one public ingress rule: WireGuard UDP on the configured port.
+
+After applying, verify:
+
+```sh
+sudo wg-quick up ~/.config/cloud-image-storage/wireguard/photo-archive.conf
+curl http://10.44.0.1:8080/healthz
+```

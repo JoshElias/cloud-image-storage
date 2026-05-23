@@ -7,8 +7,8 @@ The current implementation is the v1 foundation:
 - Rust `cis` binary with `serve`, `worker`, `import takeout`, and `upload` commands.
 - Shared ingest code for image discovery, SHA-256 hashing, MIME detection, and duplicate collapse.
 - Leptos-rendered admin pages and JSON ingest endpoints.
-- OpenTofu infrastructure skeleton for EC2, S3 lifecycle, WireGuard, IAM, and encrypted EBS.
-- Podman Quadlet units for the app, worker, Postgres, backups, and WireGuard setup.
+- OpenTofu infrastructure for EC2, S3 lifecycle, host WireGuard, IAM, and encrypted EBS.
+- Podman Quadlet units for the app, worker, Postgres, and backups.
 
 ## Local Development
 
@@ -50,5 +50,6 @@ The production plan uses WireGuard rather than AWS SSM:
 - One public UDP port, default `51820`.
 - No public HTTP, HTTPS, SSH, or Postgres ingress.
 - Admin UI and SSH are reachable only through the WireGuard private address.
+- The EC2 host bootstraps itself with cloud-init and pulls the app image from GHCR.
 
 See `deploy/README.md` for the infrastructure and host layout.

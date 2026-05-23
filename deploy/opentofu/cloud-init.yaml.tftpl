@@ -1,0 +1,110 @@
+#cloud-config
+package_update: true
+packages:
+  - e2fsprogs
+  - podman
+  - wireguard-tools
+
+bootcmd:
+  - [mkdir, -p, /etc/cis, /etc/containers/systemd, /srv/cis, /etc/wireguard]
+
+write_files:
+  - path: /etc/cis/config.toml
+    owner: root:root
+    permissions: "0644"
+    content: |
+${indent(6, app_config)}
+  - path: /etc/cis/postgres.env
+    owner: root:root
+    permissions: "0600"
+    content: |
+${indent(6, postgres_env)}
+  - path: /etc/wireguard/wg0.conf
+    owner: root:root
+    permissions: "0600"
+    content: |
+${indent(6, wireguard_config)}
+  - path: /etc/containers/systemd/app.container
+    owner: root:root
+    permissions: "0644"
+    content: |
+${indent(6, app_container)}
+  - path: /etc/containers/systemd/worker.container
+    owner: root:root
+    permissions: "0644"
+    content: |
+${indent(6, worker_container)}
+  - path: /etc/containers/systemd/postgres.container
+    owner: root:root
+    permissions: "0644"
+    content: |
+${indent(6, postgres_container)}
+  - path: /etc/containers/systemd/postgres-backup.container
+    owner: root:root
+    permissions: "0644"
+    content: |
+${indent(6, postgres_backup_container)}
+  - path: /etc/containers/systemd/postgres-backup.timer
+    owner: root:root
+    permissions: "0644"
+    content: |
+${indent(6, postgres_backup_timer)}
+  - path: /etc/containers/systemd/cis.network
+    owner: root:root
+    permissions: "0644"
+    content: |
+${indent(6, cis_network)}
+  - path: /usr/local/sbin/cis-bootstrap-storage
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      mkdir -p /srv/cis/postgres /etc/cis /etc/containers/systemd
+
+      root_source="$(findmnt -n -o SOURCE /)"
+      root_disk="$(lsblk -no PKNAME "$root_source" | head -n1)"
+
+      data_device=""
+      for _ in $(seq 1 60); do
+        while read -r name type; do
+          if [[ "$type" == "disk" && "$name" != "$root_disk" ]]; then
+            data_device="/dev/$name"
+            break
+          fi
+        done < <(lsblk -ndo NAME,TYPE)
+
+        if [[ -n "$data_device" ]]; then
+          break
+        fi
+
+        sleep 5
+      done
+
+      if [[ -z "$data_device" ]]; then
+        echo "No attached data disk found" >&2
+        exit 1
+      fi
+
+      if ! blkid "$data_device" >/dev/null 2>&1; then
+        mkfs.ext4 -F "$data_device"
+      fi
+
+      data_uuid="$(blkid -s UUID -o value "$data_device")"
+      if ! grep -q "$data_uuid" /etc/fstab; then
+        echo "UUID=$data_uuid /srv/cis ext4 defaults,nofail 0 2" >> /etc/fstab
+      fi
+
+      mountpoint -q /srv/cis || mount /srv/cis
+      mkdir -p /srv/cis/postgres
+      restorecon -R /srv/cis /etc/cis /etc/containers/systemd || true
+
+runcmd:
+  - [/usr/local/sbin/cis-bootstrap-storage]
+  - [systemctl, enable, --now, wg-quick@wg0.service]
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, postgres.service]
+  - [systemctl, enable, --now, app.service]
+  - [systemctl, enable, --now, worker.service]
+  - [systemctl, enable, --now, postgres-backup.timer]

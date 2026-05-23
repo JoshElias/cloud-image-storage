@@ -19,7 +19,7 @@ output "wireguard_client_config_template" {
   value = templatefile("${path.module}/../wireguard/client.conf.tmpl", {
     client_private_key = "<fill-client-private-key>"
     client_vpn_ip      = var.wireguard_client_vpn_ip
-    server_public_key  = "<fill-server-public-key>"
+    server_public_key  = var.wireguard_server_public_key
     server_endpoint    = "${aws_instance.host.public_ip}:${var.wireguard_port}"
     server_vpn_ip      = var.wireguard_server_vpn_ip
   })

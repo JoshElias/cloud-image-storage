@@ -13,6 +13,60 @@ data "aws_ami" "al2023_arm" {
   }
 }
 
+resource "random_password" "postgres" {
+  length  = 32
+  special = false
+}
+
+locals {
+  database_url = "postgres://cis:${random_password.postgres.result}@cis-postgres:5432/cis"
+
+  app_config = <<-TOML
+    [server]
+    bind_address = "0.0.0.0:8080"
+    public_base_url = "http://${var.wireguard_server_vpn_ip}:8080"
+
+    [storage]
+    bucket = "${var.bucket_name}"
+    region = "${var.aws_region}"
+    originals_prefix = "originals/"
+    previews_prefix = "previews/"
+    metadata_prefix = "metadata/raw/"
+
+    [database]
+    url = "${local.database_url}"
+  TOML
+
+  postgres_env = <<-ENV
+    POSTGRES_PASSWORD=${random_password.postgres.result}
+    DATABASE_URL=${local.database_url}
+    CIS_BUCKET=${var.bucket_name}
+  ENV
+
+  wireguard_config = <<-CONF
+    [Interface]
+    Address = ${var.wireguard_server_vpn_ip}/24
+    ListenPort = ${var.wireguard_port}
+    PrivateKey = ${var.wireguard_server_private_key}
+
+    [Peer]
+    PublicKey = ${var.wireguard_client_public_key}
+    AllowedIPs = ${var.wireguard_client_vpn_ip}/32
+  CONF
+
+  app_container = replace(
+    file("${path.module}/../quadlet/app.container"),
+    "ghcr.io/joshelias/cloud-image-storage:latest",
+    var.container_image,
+  )
+
+  worker_container = replace(
+    file("${path.module}/../quadlet/worker.container"),
+    "ghcr.io/joshelias/cloud-image-storage:latest",
+    var.container_image,
+  )
+}
+
 resource "aws_s3_bucket" "archive" {
   bucket = var.bucket_name
 }
@@ -153,6 +207,18 @@ resource "aws_instance" "host" {
   iam_instance_profile        = aws_iam_instance_profile.host.name
   vpc_security_group_ids      = [aws_security_group.host.id]
   associate_public_ip_address = true
+  user_data_replace_on_change = true
+  user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+    app_config                = local.app_config
+    app_container             = local.app_container
+    cis_network               = file("${path.module}/../quadlet/cis.network")
+    postgres_backup_container = file("${path.module}/../quadlet/postgres-backup.container")
+    postgres_backup_timer     = file("${path.module}/../quadlet/postgres-backup.timer")
+    postgres_container        = file("${path.module}/../quadlet/postgres.container")
+    postgres_env              = local.postgres_env
+    wireguard_config          = local.wireguard_config
+    worker_container          = local.worker_container
+  })
 
   root_block_device {
     encrypted   = true
