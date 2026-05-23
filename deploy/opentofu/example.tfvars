@@ -1,4 +1,6 @@
 bucket_name                 = "replace-me-cloud-image-storage"
 admin_ssh_public_key        = "ssh-ed25519 replace-me"
+host_subnet_id              = "subnet-replace-me"
+data_availability_zone      = "us-east-1a"
 wireguard_client_public_key = "replace-me"
 allowed_wireguard_cidr      = "0.0.0.0/0"

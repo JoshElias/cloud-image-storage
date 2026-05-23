@@ -32,6 +32,16 @@ variable "instance_type" {
   default     = "t4g.small"
 }
 
+variable "host_subnet_id" {
+  description = "Subnet where the host instance is launched."
+  type        = string
+}
+
+variable "data_availability_zone" {
+  description = "Availability zone for the durable EBS data volume."
+  type        = string
+}
+
 variable "volume_size_gb" {
   description = "Encrypted EBS volume size for Postgres and app state."
   type        = number

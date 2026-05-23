@@ -205,6 +205,7 @@ resource "aws_instance" "host" {
   ami                         = data.aws_ami.fedora_cloud_arm.id
   instance_type               = var.instance_type
   iam_instance_profile        = aws_iam_instance_profile.host.name
+  subnet_id                   = var.host_subnet_id
   vpc_security_group_ids      = [aws_security_group.host.id]
   associate_public_ip_address = true
   user_data_replace_on_change = true
@@ -232,12 +233,18 @@ resource "aws_instance" "host" {
 }
 
 resource "aws_ebs_volume" "data" {
-  availability_zone = aws_instance.host.availability_zone
+  availability_zone = var.data_availability_zone
   encrypted         = true
+  final_snapshot    = true
   size              = var.volume_size_gb
+  type              = "gp3"
 
   tags = {
     Name = "${var.name}-data"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
