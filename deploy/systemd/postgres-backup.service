@@ -1,0 +1,8 @@
+[Unit]
+Description=Cloud Image Storage Postgres Backup
+After=postgres.service network-online.target
+Wants=postgres.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cis-backup-postgres

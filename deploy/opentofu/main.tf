@@ -210,16 +210,17 @@ resource "aws_instance" "host" {
   associate_public_ip_address = true
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    app_config                = local.app_config
-    app_container             = local.app_container
-    cis_network               = file("${path.module}/../quadlet/cis.network")
-    postgres_backup_container = file("${path.module}/../quadlet/postgres-backup.container")
-    postgres_backup_timer     = file("${path.module}/../quadlet/postgres-backup.timer")
-    postgres_container        = file("${path.module}/../quadlet/postgres.container")
-    postgres_env              = local.postgres_env
-    admin_ssh_public_key      = var.admin_ssh_public_key
-    wireguard_config          = local.wireguard_config
-    worker_container          = local.worker_container
+    app_config              = local.app_config
+    app_container           = local.app_container
+    cis_network             = file("${path.module}/../quadlet/cis.network")
+    postgres_backup_script  = file("${path.module}/../scripts/cis-backup-postgres")
+    postgres_backup_service = file("${path.module}/../systemd/postgres-backup.service")
+    postgres_backup_timer   = file("${path.module}/../quadlet/postgres-backup.timer")
+    postgres_container      = file("${path.module}/../quadlet/postgres.container")
+    postgres_env            = local.postgres_env
+    admin_ssh_public_key    = var.admin_ssh_public_key
+    wireguard_config        = local.wireguard_config
+    worker_container        = local.worker_container
   })
 
   root_block_device {

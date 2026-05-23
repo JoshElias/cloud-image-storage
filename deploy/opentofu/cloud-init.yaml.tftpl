@@ -1,6 +1,7 @@
 #cloud-config
 package_update: true
 packages:
+  - awscli2
   - e2fsprogs
   - openssh-server
   - podman
@@ -49,16 +50,21 @@ write_files:
     permissions: "0644"
     content: |
       ${replace(chomp(postgres_container), "\n", "\n      ")}
-  - path: /etc/containers/systemd/postgres-backup.container
+  - path: /etc/systemd/system/postgres-backup.service
     owner: root:root
     permissions: "0644"
     content: |
-      ${replace(chomp(postgres_backup_container), "\n", "\n      ")}
+      ${replace(chomp(postgres_backup_service), "\n", "\n      ")}
   - path: /etc/systemd/system/postgres-backup.timer
     owner: root:root
     permissions: "0644"
     content: |
       ${replace(chomp(postgres_backup_timer), "\n", "\n      ")}
+  - path: /usr/local/sbin/cis-backup-postgres
+    owner: root:root
+    permissions: "0755"
+    content: |
+      ${replace(chomp(postgres_backup_script), "\n", "\n      ")}
   - path: /etc/containers/systemd/cis.network
     owner: root:root
     permissions: "0644"
