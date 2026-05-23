@@ -1,0 +1,14 @@
+[Unit]
+Description=Cloud Image Storage Postgres Backup
+After=postgres.service network-online.target
+Wants=postgres.service network-online.target
+
+[Container]
+Image=docker.io/library/postgres:17-alpine
+ContainerName=cis-postgres-backup
+Network=cis.network
+EnvironmentFile=/etc/cis/postgres.env
+Exec=sh -lc 'pg_dump "$DATABASE_URL" > /tmp/cis.sql && echo "upload /tmp/cis.sql to s3://$CIS_BUCKET/db-backups/$(date -u +%Y%m%dT%H%M%SZ).sql"'
+
+[Service]
+Type=oneshot

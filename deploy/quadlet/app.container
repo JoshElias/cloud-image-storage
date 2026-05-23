@@ -1,0 +1,19 @@
+[Unit]
+Description=Cloud Image Storage Admin UI
+After=postgres.service network-online.target
+Wants=postgres.service network-online.target
+
+[Container]
+Image=localhost/cloud-image-storage:latest
+ContainerName=cis-app
+Network=cis.network
+PublishPort=10.44.0.1:8080:8080
+Volume=/etc/cis:/etc/cis:ro,Z
+Environment=CIS_CONFIG=/etc/cis/config.toml
+Exec=serve
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

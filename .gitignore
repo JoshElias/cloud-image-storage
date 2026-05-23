@@ -1,0 +1,6 @@
+/target/
+.terraform/
+*.tfstate
+*.tfstate.*
+.env
+.envrc

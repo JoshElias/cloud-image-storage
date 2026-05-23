@@ -1,0 +1,19 @@
+[Unit]
+Description=Cloud Image Storage Postgres
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/library/postgres:17-alpine
+ContainerName=cis-postgres
+Network=cis.network
+Volume=/srv/cis/postgres:/var/lib/postgresql/data:Z
+Environment=POSTGRES_DB=cis
+Environment=POSTGRES_USER=cis
+EnvironmentFile=/etc/cis/postgres.env
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

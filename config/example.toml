@@ -1,0 +1,13 @@
+[server]
+bind_address = "127.0.0.1:8080"
+public_base_url = "http://127.0.0.1:8080"
+
+[storage]
+bucket = "example-cloud-image-storage"
+region = "us-east-1"
+originals_prefix = "originals/"
+previews_prefix = "previews/"
+metadata_prefix = "metadata/raw/"
+
+[database]
+url = "postgres://cis:change-me@127.0.0.1:5432/cis"

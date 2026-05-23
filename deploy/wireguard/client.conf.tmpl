@@ -1,0 +1,9 @@
+[Interface]
+PrivateKey = ${client_private_key}
+Address = ${client_vpn_ip}/32
+
+[Peer]
+PublicKey = ${server_public_key}
+Endpoint = ${server_endpoint}
+AllowedIPs = ${server_vpn_ip}/32
+PersistentKeepalive = 25
