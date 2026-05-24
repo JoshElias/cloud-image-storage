@@ -16,6 +16,13 @@ pub fn render_page(page: Page, config: &AppConfig) -> String {
     .to_html()
 }
 
+pub fn render_login_page(error: Option<&str>) -> String {
+    view! {
+        <LoginDocument error=error.map(str::to_string)/>
+    }
+    .to_html()
+}
+
 #[component]
 fn Document(page: Page, config: AppConfig) -> impl IntoView {
     view! {
@@ -38,12 +45,46 @@ fn Document(page: Page, config: AppConfig) -> impl IntoView {
 }
 
 #[component]
+fn LoginDocument(error: Option<String>) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>"Sign in - Cloud Image Storage"</title>
+                <style>{MAIN_CSS}</style>
+            </head>
+            <body>
+                <main class="login-main">
+                    <section class="login-panel">
+                        <p class="eyebrow">"Private archive"</p>
+                        <h1>"Sign in"</h1>
+                        {error.map(|message| view! { <p class="error-message">{message}</p> })}
+                        <form class="login-form" method="post" action="/login">
+                            <label for="username">"Username"</label>
+                            <input id="username" name="username" autocomplete="username" required/>
+                            <label for="password">"Password"</label>
+                            <input id="password" name="password" type="password" autocomplete="current-password" required/>
+                            <button type="submit">"Sign in"</button>
+                        </form>
+                    </section>
+                </main>
+            </body>
+        </html>
+    }
+}
+
+#[component]
 fn AppShell(page: Page, config: AppConfig) -> impl IntoView {
     view! {
         <nav class="top-nav">
             <a class:active=move || page == Page::Home href="/">"Home"</a>
             <a class:active=move || page == Page::Uploads href="/uploads">"Uploads"</a>
             <a class:active=move || page == Page::Restores href="/restores">"Restores"</a>
+            <form method="post" action="/logout">
+                <button type="submit">"Sign out"</button>
+            </form>
         </nav>
         <main>
             {match page {
@@ -168,6 +209,26 @@ body {
   color: #0a6847;
 }
 
+.top-nav form {
+  margin-left: auto;
+}
+
+.top-nav button,
+.login-form button {
+  border: 0;
+  border-radius: 6px;
+  padding: .55rem .8rem;
+  color: #ffffff;
+  background: #0a6847;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.top-nav button {
+  padding: .4rem .65rem;
+}
+
 main {
   width: min(70rem, calc(100vw - 3rem));
   margin: 2rem auto 4rem;
@@ -205,6 +266,48 @@ p {
   padding: 1rem;
   margin: 1rem 0;
   background: #ffffff;
+}
+
+.login-main {
+  display: grid;
+  min-height: calc(100vh - 4rem);
+  place-items: center;
+}
+
+.login-panel {
+  width: min(24rem, calc(100vw - 3rem));
+  border: 1px solid #dfddd5;
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: #ffffff;
+}
+
+.login-form {
+  display: grid;
+  gap: .65rem;
+  margin-top: 1.25rem;
+}
+
+.login-form label {
+  color: #3d443f;
+  font-weight: 700;
+}
+
+.login-form input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #c9c6bc;
+  border-radius: 6px;
+  padding: .6rem .7rem;
+  font: inherit;
+}
+
+.error-message {
+  border: 1px solid #e1a09d;
+  border-radius: 6px;
+  padding: .6rem .7rem;
+  color: #8a1f17;
+  background: #fff1f0;
 }
 
 .facts {

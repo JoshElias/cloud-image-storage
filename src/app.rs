@@ -2,15 +2,16 @@ use std::net::SocketAddr;
 use std::path::Path as FsPath;
 
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
-use axum::response::{Html, IntoResponse};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{Html, IntoResponse, Redirect};
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Form, Json, Router};
 use chrono::Utc;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
+use crate::auth::{self, LoginForm};
 use crate::config::AppConfig;
 use crate::db::Database;
 use crate::domain::{
@@ -44,6 +45,8 @@ pub async fn serve(config: AppConfig) -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/", get(home))
+        .route("/login", get(login).post(create_login))
+        .route("/logout", post(logout))
         .route("/uploads", get(uploads))
         .route("/restores", get(restores))
         .route("/healthz", get(healthz))
@@ -74,52 +77,133 @@ fn site_pkg_path() -> &'static str {
     }
 }
 
-async fn home(State(state): State<AppState>) -> Html<String> {
-    Html(ui::render_page(Page::Home, &state.config))
+async fn home(headers: HeaderMap, State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    require_page_auth(&state, &headers).await?;
+    Ok(Html(ui::render_page(Page::Home, &state.config)))
 }
 
-async fn uploads(State(state): State<AppState>) -> Html<String> {
-    Html(ui::render_page(Page::Uploads, &state.config))
+async fn uploads(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Result<Html<String>, AppError> {
+    require_page_auth(&state, &headers).await?;
+    Ok(Html(ui::render_page(Page::Uploads, &state.config)))
 }
 
-async fn restores(State(state): State<AppState>) -> Html<String> {
-    Html(ui::render_page(Page::Restores, &state.config))
+async fn restores(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Result<Html<String>, AppError> {
+    require_page_auth(&state, &headers).await?;
+    Ok(Html(ui::render_page(Page::Restores, &state.config)))
 }
 
 async fn healthz() -> impl IntoResponse {
     "ok"
 }
 
-async fn start_ingest(Json(_request): Json<StartIngestRequest>) -> Json<StartIngestResponse> {
-    Json(StartIngestResponse {
-        ingest_id: Uuid::new_v4(),
-    })
+async fn login(State(state): State<AppState>) -> impl IntoResponse {
+    if !state.config.auth.enabled() {
+        return Redirect::to("/").into_response();
+    }
+
+    Html(ui::render_login_page(None)).into_response()
 }
 
-async fn presign_upload(Json(request): Json<PresignUploadRequest>) -> Json<PresignUploadResponse> {
+async fn create_login(
+    State(state): State<AppState>,
+    Form(form): Form<LoginForm>,
+) -> Result<impl IntoResponse, AppError> {
+    if !state.config.auth.enabled() {
+        return Ok(Redirect::to("/").into_response());
+    }
+
+    let username_matches = form.username == state.config.auth.admin_username;
+    let password_matches = auth::verify_password(&form.password, &state.config.auth.password_hash)?;
+
+    if !username_matches || !password_matches {
+        return Ok((
+            StatusCode::UNAUTHORIZED,
+            Html(ui::render_login_page(Some("Invalid username or password."))),
+        )
+            .into_response());
+    }
+
+    let session = auth::new_session(&state.config.auth);
+    state
+        .database
+        .create_auth_session(&session.token_hash, session.expires_at)
+        .await?;
+
+    let mut headers = HeaderMap::new();
+    auth::set_session_cookie(&mut headers, &state.config.auth, &session.token)?;
+
+    Ok((headers, Redirect::to("/")).into_response())
+}
+
+async fn logout(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    if let Some(token) = auth::session_cookie(&headers, &state.config.auth) {
+        let token_hash = auth::hash_session_token(&token);
+        state.database.delete_auth_session(&token_hash).await?;
+    }
+
+    let mut response_headers = HeaderMap::new();
+    auth::clear_session_cookie(&mut response_headers, &state.config.auth)?;
+
+    Ok((response_headers, Redirect::to("/login")).into_response())
+}
+
+async fn start_ingest(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(_request): Json<StartIngestRequest>,
+) -> Result<Json<StartIngestResponse>, AppError> {
+    require_api_auth(&state, &headers).await?;
+
+    Ok(Json(StartIngestResponse {
+        ingest_id: Uuid::new_v4(),
+    }))
+}
+
+async fn presign_upload(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(request): Json<PresignUploadRequest>,
+) -> Result<Json<PresignUploadResponse>, AppError> {
+    require_api_auth(&state, &headers).await?;
+
     let extension = mime_guess::get_mime_extensions_str(&request.mime_type)
         .and_then(|extensions| extensions.first())
         .map(|extension| format!(".{extension}"))
         .unwrap_or_default();
 
-    Json(PresignUploadResponse {
+    Ok(Json(PresignUploadResponse {
         original_key: format!("originals/{}{}", request.sha256, extension),
         preview_key: format!("previews/{}{}", request.sha256, extension),
         metadata_key: format!("metadata/raw/{}.json", request.sha256),
-    })
+    }))
 }
 
 async fn upload_history(
+    headers: HeaderMap,
     State(state): State<AppState>,
 ) -> Result<Json<UploadHistoryResponse>, AppError> {
+    require_api_auth(&state, &headers).await?;
+
     let runs = state.database.upload_history().await?;
     Ok(Json(UploadHistoryResponse { runs }))
 }
 
 async fn presign_browser_upload(
+    headers: HeaderMap,
     State(state): State<AppState>,
     Json(request): Json<BrowserUploadPresignRequest>,
 ) -> Result<Json<BrowserUploadPresignResponse>, AppError> {
+    require_api_auth(&state, &headers).await?;
+
     let run = state
         .database
         .create_browser_upload(
@@ -166,10 +250,13 @@ async fn presign_browser_upload(
 }
 
 async fn complete_browser_upload(
+    headers: HeaderMap,
     State(state): State<AppState>,
     Path(ingest_id): Path<Uuid>,
     Json(request): Json<BrowserUploadCompleteRequest>,
 ) -> Result<Json<BrowserUploadCompleteResponse>, AppError> {
+    require_api_auth(&state, &headers).await?;
+
     let upload_keys = state
         .database
         .upload_keys_for_run(ingest_id, &request.uploaded_sha256)
@@ -197,34 +284,85 @@ async fn complete_browser_upload(
     }))
 }
 
-async fn create_restore(Json(request): Json<RestoreRequest>) -> Json<RestoreStatus> {
+async fn create_restore(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(request): Json<RestoreRequest>,
+) -> Result<Json<RestoreStatus>, AppError> {
+    require_api_auth(&state, &headers).await?;
+
     let restore_days = request.restore_days.max(1);
     tracing::info!(restore_days, "queued restore request");
 
-    Json(RestoreStatus {
+    Ok(Json(RestoreStatus {
         restore_id: Uuid::new_v4(),
         state: RestoreState::Queued,
         requested_at: Utc::now(),
-    })
+    }))
 }
 
-struct AppError(anyhow::Error);
+async fn require_page_auth(state: &AppState, headers: &HeaderMap) -> Result<(), AppError> {
+    if is_authenticated(state, headers).await? {
+        return Ok(());
+    }
+
+    Err(AppError::Redirect("/login"))
+}
+
+async fn require_api_auth(state: &AppState, headers: &HeaderMap) -> Result<(), AppError> {
+    if is_authenticated(state, headers).await? {
+        return Ok(());
+    }
+
+    Err(AppError::Unauthorized)
+}
+
+async fn is_authenticated(state: &AppState, headers: &HeaderMap) -> Result<bool, AppError> {
+    if !state.config.auth.enabled() {
+        return Ok(true);
+    }
+
+    let Some(token) = auth::session_cookie(headers, &state.config.auth) else {
+        return Ok(false);
+    };
+    let token_hash = auth::hash_session_token(&token);
+
+    Ok(state.database.auth_session_exists(&token_hash).await?)
+}
+
+enum AppError {
+    Internal(anyhow::Error),
+    Redirect(&'static str),
+    Unauthorized,
+}
 
 impl From<anyhow::Error> for AppError {
     fn from(error: anyhow::Error) -> Self {
-        Self(error)
+        Self::Internal(error)
     }
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
-        tracing::error!(error = %self.0, "request failed");
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({
-                "error": "request failed"
-            })),
-        )
-            .into_response()
+        match self {
+            Self::Internal(error) => {
+                tracing::error!(error = %error, "request failed");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "error": "request failed"
+                    })),
+                )
+                    .into_response()
+            }
+            Self::Redirect(path) => Redirect::to(path).into_response(),
+            Self::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "unauthorized"
+                })),
+            )
+                .into_response(),
+        }
     }
 }

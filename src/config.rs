@@ -7,6 +7,8 @@ pub struct AppConfig {
     pub server: ServerConfig,
     pub storage: StorageConfig,
     pub database: DatabaseConfig,
+    #[serde(default)]
+    pub auth: AuthConfig,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -27,6 +29,33 @@ pub struct StorageConfig {
 #[derive(Clone, Debug, Deserialize)]
 pub struct DatabaseConfig {
     pub url: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AuthConfig {
+    pub admin_username: String,
+    pub password_hash: String,
+    pub session_ttl_hours: i64,
+    pub cookie_name: String,
+    pub cookie_secure: bool,
+}
+
+impl AuthConfig {
+    pub fn enabled(&self) -> bool {
+        !self.password_hash.is_empty()
+    }
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            admin_username: "admin".to_string(),
+            password_hash: String::new(),
+            session_ttl_hours: 168,
+            cookie_name: "cis_session".to_string(),
+            cookie_secure: false,
+        }
+    }
 }
 
 impl AppConfig {
@@ -55,6 +84,7 @@ impl AppConfig {
             database: DatabaseConfig {
                 url: "postgres://cis:change-me@127.0.0.1:5432/cis".to_string(),
             },
+            auth: AuthConfig::default(),
         }
     }
 }

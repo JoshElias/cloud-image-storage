@@ -331,4 +331,71 @@ impl Database {
             })
             .collect())
     }
+
+    pub async fn create_auth_session(
+        &self,
+        token_hash: &str,
+        expires_at: DateTime<Utc>,
+    ) -> anyhow::Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO auth_sessions (token_hash, expires_at)
+            VALUES ($1, $2)
+            "#,
+        )
+        .bind(token_hash)
+        .bind(expires_at)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn auth_session_exists(&self, token_hash: &str) -> anyhow::Result<bool> {
+        let mut transaction = self.pool.begin().await?;
+
+        let exists: bool = sqlx::query_scalar(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM auth_sessions
+                WHERE token_hash = $1
+                  AND expires_at > now()
+            )
+            "#,
+        )
+        .bind(token_hash)
+        .fetch_one(&mut *transaction)
+        .await?;
+
+        if exists {
+            sqlx::query(
+                r#"
+                UPDATE auth_sessions
+                SET last_seen_at = now()
+                WHERE token_hash = $1
+                "#,
+            )
+            .bind(token_hash)
+            .execute(&mut *transaction)
+            .await?;
+        }
+
+        transaction.commit().await?;
+        Ok(exists)
+    }
+
+    pub async fn delete_auth_session(&self, token_hash: &str) -> anyhow::Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM auth_sessions
+            WHERE token_hash = $1
+            "#,
+        )
+        .bind(token_hash)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
 }

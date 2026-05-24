@@ -1,4 +1,5 @@
 mod app;
+mod auth;
 mod cli;
 mod config;
 mod db;
@@ -11,7 +12,7 @@ mod worker;
 
 use anyhow::Context;
 use clap::Parser;
-use cli::{Cli, Command, ImportCommand};
+use cli::{AuthCommand, Cli, Command, ImportCommand};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -26,6 +27,12 @@ async fn main() -> anyhow::Result<()> {
             let config = config::AppConfig::load(config.as_deref()).await?;
             app::serve(config).await
         }
+        Command::Auth { command } => match command {
+            AuthCommand::HashPassword { password } => {
+                println!("{}", auth::hash_password(&password)?);
+                Ok(())
+            }
+        },
         Command::Worker { config } => {
             let config = config::AppConfig::load(config.as_deref()).await?;
             worker::run(config).await

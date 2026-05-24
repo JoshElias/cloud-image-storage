@@ -16,6 +16,10 @@ pub enum Command {
         #[arg(long, env = "CIS_CONFIG")]
         config: Option<Utf8PathBuf>,
     },
+    Auth {
+        #[command(subcommand)]
+        command: AuthCommand,
+    },
     Worker {
         #[arg(long, env = "CIS_CONFIG")]
         config: Option<Utf8PathBuf>,
@@ -36,6 +40,14 @@ pub enum Command {
 
         #[arg(long)]
         json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AuthCommand {
+    HashPassword {
+        #[arg(long)]
+        password: String,
     },
 }
 
