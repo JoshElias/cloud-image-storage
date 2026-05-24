@@ -8,6 +8,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     rustup target add wasm32-unknown-unknown \
     && cargo install cargo-leptos --version 0.3.6 --locked
 COPY src ./src
+COPY migrations ./migrations
 COPY public ./public
 COPY style ./style
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
