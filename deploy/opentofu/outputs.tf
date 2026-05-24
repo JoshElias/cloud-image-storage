@@ -3,11 +3,11 @@ output "bucket_name" {
 }
 
 output "host_public_ip" {
-  value = aws_instance.host.public_ip
+  value = aws_eip.host.public_ip
 }
 
 output "wireguard_endpoint" {
-  value = "${aws_instance.host.public_ip}:${var.wireguard_port}"
+  value = "${aws_eip.host.public_ip}:${var.wireguard_port}"
 }
 
 output "wireguard_server_vpn_ip" {
@@ -20,7 +20,7 @@ output "wireguard_client_config_template" {
     client_private_key = "<fill-client-private-key>"
     client_vpn_ip      = var.wireguard_client_vpn_ip
     server_public_key  = var.wireguard_server_public_key
-    server_endpoint    = "${aws_instance.host.public_ip}:${var.wireguard_port}"
+    server_endpoint    = "${aws_eip.host.public_ip}:${var.wireguard_port}"
     server_vpn_ip      = var.wireguard_server_vpn_ip
   })
 }

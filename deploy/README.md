@@ -3,6 +3,7 @@
 This deployment is intentionally small:
 
 - One AWS EC2 instance.
+- One Elastic IP for a stable WireGuard endpoint.
 - One encrypted EBS data volume.
 - One private S3 bucket with lifecycle rules for originals.
 - One WireGuard UDP ingress rule.
@@ -18,6 +19,8 @@ No public HTTP, HTTPS, SSH, or Postgres ingress is created.
 3. Apply the infrastructure.
 4. Let cloud-init install packages, configure WireGuard, mount the data volume, and enable the Quadlet units.
 5. Connect WireGuard from the laptop and browse the app at the server VPN address.
+
+The Elastic IP keeps the WireGuard endpoint stable when the EC2 host is rebuilt.
 
 The app and worker containers pull `ghcr.io/joshelias/cloud-image-storage:latest` by default. The package must be public, or the host will need registry credentials.
 

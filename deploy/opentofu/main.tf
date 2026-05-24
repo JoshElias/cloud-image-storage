@@ -233,6 +233,19 @@ resource "aws_instance" "host" {
   }
 }
 
+resource "aws_eip" "host" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${var.name}-host"
+  }
+}
+
+resource "aws_eip_association" "host" {
+  allocation_id = aws_eip.host.id
+  instance_id   = aws_instance.host.id
+}
+
 resource "aws_ebs_volume" "data" {
   availability_zone = var.data_availability_zone
   encrypted         = true
