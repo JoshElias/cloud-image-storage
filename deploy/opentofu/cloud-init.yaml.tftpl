@@ -17,7 +17,7 @@ users:
       - ${admin_ssh_public_key}
 
 bootcmd:
-  - [mkdir, -p, /etc/cis, /etc/containers/systemd, /srv/cis, /etc/wireguard]
+  - [mkdir, -p, /etc/cis, /etc/containers/systemd, /srv/cis, /srv/cis/caddy/data, /srv/cis/caddy/config, /etc/wireguard]
 
 write_files:
   - path: /etc/cis/config.toml
@@ -30,6 +30,11 @@ write_files:
     permissions: "0600"
     content: |
       ${replace(chomp(postgres_env), "\n", "\n      ")}
+  - path: /etc/cis/Caddyfile
+    owner: root:root
+    permissions: "0644"
+    content: |
+      ${replace(chomp(caddyfile), "\n", "\n      ")}
   - path: /etc/wireguard/wg0.conf
     owner: root:root
     permissions: "0600"
@@ -45,6 +50,11 @@ write_files:
     permissions: "0644"
     content: |
       ${replace(chomp(worker_container), "\n", "\n      ")}
+  - path: /etc/containers/systemd/caddy.container
+    owner: root:root
+    permissions: "0644"
+    content: |
+      ${replace(chomp(caddy_container), "\n", "\n      ")}
   - path: /etc/containers/systemd/postgres.container
     owner: root:root
     permissions: "0644"
@@ -77,7 +87,7 @@ write_files:
       #!/usr/bin/env bash
       set -euo pipefail
 
-      mkdir -p /srv/cis/postgres /etc/cis /etc/containers/systemd
+      mkdir -p /srv/cis/postgres /srv/cis/caddy/data /srv/cis/caddy/config /etc/cis /etc/containers/systemd
 
       root_source="$(findmnt -n -o SOURCE / | sed 's/\[.*\]//')"
       root_disk="$(lsblk -no PKNAME "$root_source" | head -n1)"
@@ -113,7 +123,7 @@ write_files:
       fi
 
       mountpoint -q /srv/cis || mount /srv/cis
-      mkdir -p /srv/cis/postgres
+      mkdir -p /srv/cis/postgres /srv/cis/caddy/data /srv/cis/caddy/config
       restorecon -R /srv/cis /etc/cis /etc/containers/systemd || true
 
 runcmd:
@@ -123,5 +133,6 @@ runcmd:
   - [systemctl, daemon-reload]
   - [systemctl, start, postgres.service]
   - [systemctl, start, app.service]
+  - [systemctl, start, caddy.service]
   - [systemctl, start, worker.service]
   - [systemctl, enable, --now, postgres-backup.timer]

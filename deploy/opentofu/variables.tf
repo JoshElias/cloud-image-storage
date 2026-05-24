@@ -15,6 +15,17 @@ variable "bucket_name" {
   type        = string
 }
 
+variable "portal_domain_name" {
+  description = "Public HTTPS domain name for the photo portal."
+  type        = string
+}
+
+variable "admin_password_hash" {
+  description = "Argon2id password hash for the admin portal account."
+  type        = string
+  sensitive   = true
+}
+
 variable "container_image" {
   description = "Container image used by the app and worker Quadlet units."
   type        = string

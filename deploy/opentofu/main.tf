@@ -24,7 +24,7 @@ locals {
   app_config = <<-TOML
     [server]
     bind_address = "0.0.0.0:8080"
-    public_base_url = "http://${var.wireguard_server_vpn_ip}:8080"
+    public_base_url = "https://${var.portal_domain_name}"
 
     [storage]
     bucket = "${var.bucket_name}"
@@ -35,7 +35,20 @@ locals {
 
     [database]
     url = "${local.database_url}"
+
+    [auth]
+    admin_username = "admin"
+    password_hash = "${var.admin_password_hash}"
+    session_ttl_hours = 168
+    cookie_name = "cis_session"
+    cookie_secure = true
   TOML
+
+  caddyfile = <<-CADDY
+    ${var.portal_domain_name} {
+      reverse_proxy cis-app:8080
+    }
+  CADDY
 
   postgres_env = <<-ENV
     POSTGRES_PASSWORD=${random_password.postgres.result}
@@ -59,6 +72,8 @@ locals {
     "ghcr.io/joshelias/cloud-image-storage:latest",
     var.container_image,
   )
+
+  caddy_container = file("${path.module}/../quadlet/caddy.container")
 
   worker_container = replace(
     file("${path.module}/../quadlet/worker.container"),
@@ -104,6 +119,7 @@ resource "aws_s3_bucket_cors_configuration" "archive" {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD", "PUT"]
     allowed_origins = [
+      "https://${var.portal_domain_name}",
       "http://${var.wireguard_server_vpn_ip}:8080",
       "http://127.0.0.1:8080",
       "http://localhost:8080",
@@ -208,6 +224,22 @@ resource "aws_security_group" "host" {
     cidr_blocks = [var.allowed_wireguard_cidr]
   }
 
+  ingress {
+    description = "Public HTTP for Caddy ACME challenge and redirect"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Public HTTPS portal"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     description = "Outbound internet access"
     from_port   = 0
@@ -228,6 +260,8 @@ resource "aws_instance" "host" {
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     app_config              = local.app_config
     app_container           = local.app_container
+    caddy_container         = local.caddy_container
+    caddyfile               = local.caddyfile
     cis_network             = file("${path.module}/../quadlet/cis.network")
     postgres_backup_script  = file("${path.module}/../scripts/cis-backup-postgres")
     postgres_backup_service = file("${path.module}/../systemd/postgres-backup.service")
