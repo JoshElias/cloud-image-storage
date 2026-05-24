@@ -1,4 +1,6 @@
 bucket_name                 = "replace-me-cloud-image-storage"
+portal_domain_name          = "photos.example.com"
+admin_password_hash         = "$argon2id$v=19$replace-me"
 admin_ssh_public_key        = "ssh-ed25519 replace-me"
 host_subnet_id              = "subnet-replace-me"
 data_availability_zone      = "us-east-1a"
