@@ -97,6 +97,22 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "archive" {
   }
 }
 
+resource "aws_s3_bucket_cors_configuration" "archive" {
+  bucket = aws_s3_bucket.archive.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD", "PUT"]
+    allowed_origins = [
+      "http://${var.wireguard_server_vpn_ip}:8080",
+      "http://127.0.0.1:8080",
+      "http://localhost:8080",
+    ]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "archive" {
   bucket = aws_s3_bucket.archive.id
 

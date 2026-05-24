@@ -1,9 +1,12 @@
 mod app;
 mod cli;
 mod config;
+mod db;
 mod domain;
 mod ingest;
+mod storage;
 mod ui;
+mod upload_api;
 mod worker;
 
 use anyhow::Context;

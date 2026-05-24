@@ -26,6 +26,9 @@ fn Document(page: Page, config: AppConfig) -> impl IntoView {
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <title>"Cloud Image Storage"</title>
                 <style>{MAIN_CSS}</style>
+                <script type="module">
+                    "import init, { hydrate } from '/pkg/cis.js'; init().then(hydrate);"
+                </script>
             </head>
             <body>
                 <AppShell page=page config=config/>
@@ -112,12 +115,9 @@ fn UploadsPage() -> impl IntoView {
         <section class="page-heading">
             <p class="eyebrow">"Ingest"</p>
             <h1>"Uploads"</h1>
-            <p>"Manual upload batches and Google Takeout imports will appear here once Postgres persistence is connected."</p>
+            <p>"Upload manual Pixel-origin photos directly to private S3 storage."</p>
         </section>
-        <section class="panel empty-state">
-            <h2>"No upload history yet"</h2>
-            <p>"The current server can scan manifests and expose API contracts. The next slice stores ingest runs, assets, and collection membership."</p>
-        </section>
+        <div id="upload-app"></div>
     }
 }
 
@@ -244,5 +244,59 @@ code {
 
 .empty-state {
   color: #3d443f;
+}
+
+.upload-tool button {
+  border: 0;
+  border-radius: 6px;
+  padding: .65rem 1rem;
+  background: #0a6847;
+  color: white;
+  font-weight: 700;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.field-grid label {
+  display: grid;
+  gap: .35rem;
+  color: #3d443f;
+  font-weight: 700;
+}
+
+.field-grid input {
+  min-height: 2.25rem;
+  border: 1px solid #c8c5ba;
+  border-radius: 6px;
+  padding: .35rem .5rem;
+  font: inherit;
+  font-weight: 500;
+}
+
+.upload-status {
+  margin-bottom: 0;
+  color: #3d443f;
+}
+
+.upload-history {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.upload-history th,
+.upload-history td {
+  border-bottom: 1px solid #eeece5;
+  padding: .65rem .5rem;
+  text-align: left;
+}
+
+.upload-history th {
+  color: #5c665f;
+  font-size: .85rem;
 }
 "#;
